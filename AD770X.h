@@ -5,8 +5,14 @@
 
 /*
  * AD7705/AD7706 Library
+ * forked by Teodor Costachioiu 
+ * https://electronza.com
+ * modified to work with Arduino Due, PIC32, ESP8266 and ESP32 
+ * 24 March 2018
+ * based on the original code by
  * Kerry D. Wong
  * http://www.kerrywong.com
+ * https://github.com/kerrydwong/AD770X
  * Initial version 1.0 3/2011
  * Updated 1.1 4/2012
  */
@@ -65,15 +71,7 @@ public:
     static const byte CLK_DIV_1 = 0x1;
     static const byte CLK_DIV_2 = 0x2;
 
-    byte spiTransfer(volatile byte data) {
-        SPDR = data;
-
-        while (!(SPSR & _BV(SPIF)));
-
-        return SPDR;
-    };
-
-    AD770X(double vref);
+    AD770X(double vref, int CSpin);
     void setNextOperation(byte reg, byte channel, byte readWrite);
     void writeClockRegister(byte CLKDIS, byte CLKDIV, byte outputUpdateRate);
     void writeSetupRegister(byte operationMode, byte gain, byte unipolar, byte buffered, byte fsync);
@@ -84,10 +82,7 @@ public:
     void init(byte channel);
     void init(byte channel, byte clkDivider, byte polarity, byte gain, byte updRate);
 private:
-    static const int pinMOSI = 11; //MOSI
-    static const int pinMISO = 12; //MISO
-    static const int pinSPIClock = 13; //SCK
-    static const int pinCS = 10; //CS
+    int _pinCS;
     double VRef;
     unsigned int readADResult();
 };
