@@ -1,12 +1,19 @@
 /*
  * AD7705/AD7706 Library
+ * forked by Teodor Costachioiu 
+ * https://electronza.com
+ * modified to work with Arduino Due, PIC32, ESP8266 and ESP32 
+ * 24 March 2018
+ * based on the original code by
  * Kerry D. Wong
  * http://www.kerrywong.com
+ * https://github.com/kerrydwong/AD770X
  * Initial version 1.0 3/2011
  * Updated 1.1 4/2012
  */
 
 #include "AD770X.h"
+#include <SPI.h>
 
 //write communication register
 //   7        6      5      4      3      2      1      0
@@ -15,10 +22,11 @@
 void AD770X::setNextOperation(byte reg, byte channel, byte readWrite) {
     byte r = 0;
     r = reg << 4 | readWrite << 3 | channel;
-
-    digitalWrite(pinCS, LOW);
-    spiTransfer(r);
-    digitalWrite(pinCS, HIGH);
+    SPI.beginTransaction(SPISettings(500000, MSBFIRST, SPI_MODE3));
+    digitalWrite(_pinCS, LOW);
+    SPI.transfer(r);
+    digitalWrite(_pinCS, HIGH);
+    SPI.endTransaction();
 }
 
 //Clock Register
@@ -33,31 +41,35 @@ void AD770X::writeClockRegister(byte CLKDIS, byte CLKDIV, byte outputUpdateRate)
 
     r &= ~(1 << 2); // clear CLK
 
-    digitalWrite(pinCS, LOW);
-    spiTransfer(r);
-    digitalWrite(pinCS, HIGH);
+    SPI.beginTransaction(SPISettings(500000, MSBFIRST, SPI_MODE3));
+    digitalWrite(_pinCS, LOW);
+    SPI.transfer(r);
+    digitalWrite(_pinCS, HIGH);
+    SPI.endTransaction();
 }
 
 //Setup Register
 //  7     6     5     4     3      2      1      0
-//MD10) MD0(0) G2(0) G1(0) G0(0) B/U(0) BUF(0) FSYNC(1)
+//MD_pinCS) MD0(0) G2(0) G1(0) G0(0) B/U(0) BUF(0) FSYNC(1)
 
 void AD770X::writeSetupRegister(byte operationMode, byte gain, byte unipolar, byte buffered, byte fsync) {
     byte r = operationMode << 6 | gain << 3 | unipolar << 2 | buffered << 1 | fsync;
 
-    digitalWrite(pinCS, LOW);
-    spiTransfer(r);
-    digitalWrite(pinCS, HIGH);
+    SPI.beginTransaction(SPISettings(500000, MSBFIRST, SPI_MODE3));
+    digitalWrite(_pinCS, LOW);
+    SPI.transfer(r);
+    digitalWrite(_pinCS, HIGH);
+    SPI.endTransaction();
 }
 
 unsigned int AD770X::readADResult() {
-    digitalWrite(pinCS, LOW);
-    byte b1 = spiTransfer(0x0);
-    byte b2 = spiTransfer(0x0);
-    digitalWrite(pinCS, HIGH);
-
+	SPI.beginTransaction(SPISettings(500000, MSBFIRST, SPI_MODE3));
+    digitalWrite(_pinCS, LOW);
+    byte b1 = SPI.transfer(0x00);
+    byte b2 = SPI.transfer(0x00);
+    digitalWrite(_pinCS, HIGH);
+    SPI.endTransaction();
     unsigned int r = b1 << 8 | b2;
-
     return r;
 }
 
@@ -75,30 +87,29 @@ double AD770X::readADResult(byte channel, float refOffset) {
 
 bool AD770X::dataReady(byte channel) {
     setNextOperation(REG_CMM, channel, 1);
-
-    digitalWrite(pinCS, LOW);
-    byte b1 = spiTransfer(0x0);
-    digitalWrite(pinCS, HIGH);
+	SPI.beginTransaction(SPISettings(500000, MSBFIRST, SPI_MODE3));
+    digitalWrite(_pinCS, LOW);
+    byte b1 = SPI.transfer(0x00);
+    digitalWrite(_pinCS, HIGH);
+    SPI.endTransaction();
 
     return (b1 & 0x80) == 0x0;
 }
 
 void AD770X::reset() {
-    digitalWrite(pinCS, LOW);
-    for (int i = 0; i < 100; i++)
-        spiTransfer(0xff);
-    digitalWrite(pinCS, HIGH);
+    SPI.beginTransaction(SPISettings(500000, MSBFIRST, SPI_MODE3));
+    digitalWrite(_pinCS, LOW);
+    for (int i = 0; i < _pinCS0; i++)
+		SPI.transfer(0xff);
+	digitalWrite(_pinCS, HIGH);
+    SPI.endTransaction();
 }
 
-AD770X::AD770X(double vref) {
+AD770X::AD770X(double vref, int CSpin) {
     VRef = vref;
-    pinMode(pinMOSI, OUTPUT);
-    pinMode(pinMISO, INPUT);
-    pinMode(pinSPIClock, OUTPUT);
-    pinMode(pinCS, OUTPUT);
-
-    digitalWrite(pinCS, HIGH);
-    SPCR = _BV(SPE) | _BV(MSTR) | _BV(CPOL) | _BV(CPHA) | _BV(SPI2X) | _BV(SPR1) | _BV(SPR0);
+    _pinCS = CSpin;
+    pinMode(_pinCS, OUTPUT);
+    digitalWrite(_pinCS, HIGH);
 }
 
 void AD770X::init(byte channel, byte clkDivider, byte polarity, byte gain, byte updRate) {
