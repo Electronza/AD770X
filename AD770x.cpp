@@ -99,7 +99,7 @@ bool AD770X::dataReady(byte channel) {
 void AD770X::reset() {
     SPI.beginTransaction(SPISettings(500000, MSBFIRST, SPI_MODE3));
     digitalWrite(_pinCS, LOW);
-    for (int i = 0; i < _pinCS0; i++)
+    for (int i = 0; i < 100; i++)
 		SPI.transfer(0xff);
 	digitalWrite(_pinCS, HIGH);
     SPI.endTransaction();
